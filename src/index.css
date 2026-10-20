@@ -1,0 +1,115 @@
+@import "tailwindcss";
+
+@layer base {
+  html, body, #root {
+    height: 100%;
+    min-height: 100%;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  body {
+    font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  }
+  
+  .font-mono-numbers {
+    font-family: 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom dark tactical map popup */
+.leaflet-popup-content-wrapper {
+  background: #0f172a !important;
+  color: #f8fafc !important;
+  border: 1px solid #334155 !important;
+  border-radius: 8px !important;
+  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7) !important;
+  padding: 0 !important;
+}
+
+.leaflet-popup-content {
+  margin: 12px 14px !important;
+  line-height: 1.4 !important;
+}
+
+.leaflet-popup-tip {
+  background: #0f172a !important;
+  border: 1px solid #334155 !important;
+}
+
+.leaflet-container {
+  background-color: #020617 !important;
+  font-family: inherit !important;
+}
+
+/* Custom scrollbars for telemetry feeds */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #090d16;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #334155;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #475569;
+}
+
+/* Custom Military Base Marker & Permanent Abbreviation Tooltips */
+.custom-military-marker {
+  overflow: visible !important;
+}
+
+.leaflet-tooltip.military-base-tooltip {
+  background: rgba(2, 6, 23, 0.94) !important;
+  border: 1px solid #38bdf8 !important;
+  color: #f8fafc !important;
+  font-family: 'JetBrains Mono', monospace !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 1px 6px !important;
+  border-radius: 4px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.8) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  letter-spacing: 0.03em !important;
+}
+
+.leaflet-tooltip.military-base-tooltip::before {
+  display: none !important;
+}
+
+.leaflet-tooltip.military-base-tooltip.threat-critical {
+  border-color: #ef4444 !important;
+  color: #fca5a5 !important;
+  background: rgba(69, 10, 10, 0.96) !important;
+  box-shadow: 0 0 10px rgba(239, 68, 68, 0.6) !important;
+}
+
+.leaflet-tooltip.military-base-tooltip.threat-warning {
+  border-color: #f59e0b !important;
+  color: #fde68a !important;
+  background: rgba(69, 36, 6, 0.96) !important;
+}
+
+.leaflet-tooltip.military-base-tooltip.threat-advisory {
+  border-color: #3b82f6 !important;
+  color: #93c5fd !important;
+  background: rgba(15, 23, 42, 0.96) !important;
+}
+
+.leaflet-tooltip.military-base-tooltip.selected {
+  border-color: #ffffff !important;
+  color: #ffffff !important;
+  box-shadow: 0 0 12px rgba(255, 255, 255, 0.7) !important;
+}
+
+
