@@ -15,7 +15,7 @@ import {
   fetchLiveGfwFireAlerts,
   getReferenceGfwHotspots,
 } from './services/gfwApi';
-import { evaluateBaseThreats } from './utils/geoMath';
+import { evaluateBaseThreats, enrichHotspotsWithNearestBase } from './utils/geoMath';
 import { alarmAudio } from './utils/audioAlarm';
 import { TopBar } from './components/TopBar';
 import { AlarmHUD } from './components/AlarmHUD';
@@ -89,6 +89,7 @@ export default function App() {
     return localStorage.getItem('tni_au_full_map') === 'true';
   });
   const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
+  const [showHotspotAlertLabels, setShowHotspotAlertLabels] = useState<boolean>(true);
 
   // Filter States
   const [selectedKoopsud, setSelectedKoopsud] = useState<FilterConfig['koopsud']>('ALL');
@@ -220,11 +221,17 @@ export default function App() {
     loadFireData(false);
   }, [loadFireData]);
 
-  // Active Hotspots with Peatland filter
+  // Active Hotspots with Peatland filter, enriched with nearest base & threat alert level
   const activeHotspots = useMemo(() => {
-    if (!peatlandOnly) return rawHotspots;
-    return rawHotspots.filter((h) => h.isPeatland);
-  }, [rawHotspots, peatlandOnly]);
+    const baseList = !peatlandOnly ? rawHotspots : rawHotspots.filter((h) => h.isPeatland);
+    return enrichHotspotsWithNearestBase(
+      baseList,
+      TNI_AU_BASES,
+      dangerRadiusKm,
+      warningRadiusKm,
+      advisoryRadiusKm
+    );
+  }, [rawHotspots, peatlandOnly, dangerRadiusKm, warningRadiusKm, advisoryRadiusKm]);
 
   const peatlandCount = useMemo(() => {
     return rawHotspots.filter((h) => h.isPeatland).length;
@@ -397,6 +404,8 @@ export default function App() {
         isFullMap={isFullMap && activeView === 'map'}
         onToggleFullMap={handleToggleFullMap}
         onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
+        showHotspotAlertLabels={showHotspotAlertLabels}
+        onToggleHotspotAlertLabels={() => setShowHotspotAlertLabels(!showHotspotAlertLabels)}
       />
 
       {/* Notice / GFW Info Banner */}
@@ -459,6 +468,7 @@ export default function App() {
               onToggleFullMap={handleToggleFullMap}
               onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
               onOpenDetailModal={handleOpenDetailModal}
+              showHotspotAlertLabels={showHotspotAlertLabels}
             />
           ) : (
             <TacticalMap
@@ -482,6 +492,7 @@ export default function App() {
               onToggleFullMap={handleToggleFullMap}
               onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
               onOpenDetailModal={handleOpenDetailModal}
+              showHotspotAlertLabels={showHotspotAlertLabels}
             />
           )
         )}
@@ -548,6 +559,8 @@ export default function App() {
         isFullMap={isFullMap}
         onToggleFullMap={handleToggleFullMap}
         onOpenSettings={() => setIsSettingsModalOpen(true)}
+        showHotspotAlertLabels={showHotspotAlertLabels}
+        onToggleHotspotAlertLabels={() => setShowHotspotAlertLabels(!showHotspotAlertLabels)}
       />
 
       {/* Base Threat & SOP Detail Modal */}

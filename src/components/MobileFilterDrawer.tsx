@@ -12,6 +12,7 @@ import {
   Settings,
   Shield,
   RotateCcw,
+  Tag,
 } from 'lucide-react';
 import { BaseType, DataSourceProvider, KoopsudRegion, ThreatLevel } from '../types';
 import { SatelliteSensor } from '../services/firmsApi';
@@ -43,6 +44,8 @@ interface MobileFilterDrawerProps {
   isFullMap: boolean;
   onToggleFullMap: () => void;
   onOpenSettings: () => void;
+  showHotspotAlertLabels?: boolean;
+  onToggleHotspotAlertLabels?: () => void;
 }
 
 export const MobileFilterDrawer: React.FC<MobileFilterDrawerProps> = ({
@@ -72,6 +75,8 @@ export const MobileFilterDrawer: React.FC<MobileFilterDrawerProps> = ({
   isFullMap,
   onToggleFullMap,
   onOpenSettings,
+  showHotspotAlertLabels = true,
+  onToggleHotspotAlertLabels,
 }) => {
   if (!isOpen) return null;
 
@@ -263,6 +268,33 @@ export const MobileFilterDrawer: React.FC<MobileFilterDrawerProps> = ({
               />
             </button>
           </div>
+
+          {/* Keterangan Data Titik Api Alert (Tanpa Klik) */}
+          {onToggleHotspotAlertLabels && (
+            <div className="bg-slate-950 p-3 rounded-xl border border-slate-800 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Tag className={`w-4 h-4 ${showHotspotAlertLabels ? 'text-red-400' : 'text-slate-500'}`} />
+                <div>
+                  <div className="font-semibold text-slate-200">Label Keterangan Titik Api Alert</div>
+                  <div className="text-[10px] text-slate-400">
+                    Tampilkan jarak Lanud & daya MW langsung tanpa klik
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={onToggleHotspotAlertLabels}
+                className={`w-12 h-6 rounded-full transition-colors relative cursor-pointer ${
+                  showHotspotAlertLabels ? 'bg-red-600' : 'bg-slate-800'
+                }`}
+              >
+                <span
+                  className={`block w-4 h-4 rounded-full bg-white transition-transform ${
+                    showHotspotAlertLabels ? 'translate-x-7' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          )}
 
           {/* Wilayah Komando Operasi Udara (Koopsud) */}
           <div>

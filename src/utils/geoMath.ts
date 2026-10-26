@@ -170,6 +170,77 @@ export function evaluateBaseThreats(
 }
 
 /**
+ * Enriches all hotspots with nearest TNI AU base, distance in km, compass bearing,
+ * and alert threat level (CRITICAL, WARNING, ADVISORY, or SAFE).
+ */
+export function enrichHotspotsWithNearestBase(
+  hotspots: FireHotspot[],
+  bases: LanudBase[],
+  dangerRadiusKm: number = 5,
+  warningRadiusKm: number = 15,
+  advisoryRadiusKm: number = 30
+): FireHotspot[] {
+  return hotspots.map((h) => {
+    let nearestBase: LanudBase | undefined;
+    let minDistance = Infinity;
+
+    for (const b of bases) {
+      const dist = calculateDistanceKm(b.lat, b.lon, h.latitude, h.longitude);
+      if (dist < minDistance) {
+        minDistance = dist;
+        nearestBase = b;
+      }
+    }
+
+    const threatLevel = nearestBase
+      ? getThreatLevel(minDistance, h.frp, dangerRadiusKm, warningRadiusKm, advisoryRadiusKm)
+      : 'SAFE';
+
+    const bearingDeg = nearestBase
+      ? calculateBearingDeg(nearestBase.lat, nearestBase.lon, h.latitude, h.longitude)
+      : undefined;
+
+    return {
+      ...h,
+      distanceKm: minDistance === Infinity ? undefined : minDistance,
+      nearestBase,
+      bearingDeg,
+      threatLevel,
+    };
+  });
+}
+
+/**
+ * Returns formatted tactical callout text for hotspots in alert zones
+ */
+export function getHotspotAlertTag(hotspot: FireHotspot): {
+  baseCode: string;
+  distanceStr: string;
+  frpStr: string;
+  isPeatland: boolean;
+  threatLevel: ThreatLevel;
+  displayTag: string;
+} {
+  const baseCode = hotspot.nearestBase ? getBaseTacticalAbbr(hotspot.nearestBase) : 'LANUD';
+  const distanceStr = hotspot.distanceKm !== undefined ? `${hotspot.distanceKm.toFixed(1)} km` : '';
+  const frpStr = `${(hotspot.frp || 0).toFixed(0)} MW`;
+  const isPeatland = !!hotspot.isPeatland;
+  const threatLevel = hotspot.threatLevel || 'SAFE';
+
+  const parts = [`${baseCode} ${distanceStr}`, frpStr];
+  if (isPeatland) parts.push('GAMBUT');
+
+  return {
+    baseCode,
+    distanceStr,
+    frpStr,
+    isPeatland,
+    threatLevel,
+    displayTag: parts.join(' · '),
+  };
+}
+
+/**
  * Converts NASA FIRMS UTC date and time into Indonesian Western Time (WIB / UTC+7)
  * e.g., acqDate: "2026-10-19", acqTime: "0421" -> "11:21 WIB"
  */

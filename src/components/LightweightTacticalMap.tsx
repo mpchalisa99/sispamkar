@@ -77,6 +77,7 @@ interface LightweightTacticalMapProps {
   onToggleFullMap?: () => void;
   onOpenFilterDrawer?: () => void;
   onOpenDetailModal?: (summary: BaseThreatSummary) => void;
+  showHotspotAlertLabels?: boolean;
 }
 
 export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
@@ -93,6 +94,7 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
   onToggleFullMap,
   onOpenFilterDrawer,
   onOpenDetailModal,
+  showHotspotAlertLabels = true,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -603,6 +605,100 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
             );
           })}
         </g>
+
+        {/* Hotspot Alert Data Annotation Tags Layer (Always visible for alert zones without clicking) */}
+        {showHotspotAlertLabels && (
+          <g id="hotspotAlertLabels" className="pointer-events-none select-none">
+            {hotspots
+              .filter(
+                (h) =>
+                  h.threatLevel === 'CRITICAL' ||
+                  h.threatLevel === 'WARNING' ||
+                  h.threatLevel === 'ADVISORY'
+              )
+              .map((h) => {
+                const { x, y } = geoToSvg(h.latitude, h.longitude);
+                const radius = h.threatLevel === 'CRITICAL' ? 5.5 : h.threatLevel === 'WARNING' ? 4 : 3;
+
+                const baseAbbr = h.nearestBase ? getBaseTacticalAbbr(h.nearestBase) : 'LANUD';
+                const distStr = h.distanceKm !== undefined ? `${h.distanceKm.toFixed(1)}km` : '';
+                const frpStr = `${(h.frp || 0).toFixed(0)}MW`;
+                const peatTag = h.isPeatland ? '· GB' : '';
+                const tagText = `${baseAbbr} ${distStr} · ${frpStr} ${peatTag}`.trim();
+
+                const tagW = tagText.length * 6.2 + 18;
+                const tagH = 15;
+                const tagX = x - tagW / 2;
+                const tagY = y - radius - 18;
+
+                const strokeColor =
+                  h.threatLevel === 'CRITICAL'
+                    ? '#ef4444'
+                    : h.threatLevel === 'WARNING'
+                    ? '#f59e0b'
+                    : '#38bdf8';
+                const bgFill =
+                  h.threatLevel === 'CRITICAL'
+                    ? '#450a0a'
+                    : h.threatLevel === 'WARNING'
+                    ? '#451a03'
+                    : '#090d16';
+                const textColor =
+                  h.threatLevel === 'CRITICAL'
+                    ? '#fca5a5'
+                    : h.threatLevel === 'WARNING'
+                    ? '#fde68a'
+                    : '#bae6fd';
+
+                return (
+                  <g key={`alert-tag-${h.id}`}>
+                    {/* Leader pointer dashed line to hotspot coordinate */}
+                    <line
+                      x1={x}
+                      y1={y - radius}
+                      x2={x}
+                      y2={tagY + tagH}
+                      stroke={strokeColor}
+                      strokeWidth="1"
+                      strokeDasharray="2,2"
+                      opacity="0.85"
+                    />
+                    {/* Callout Rect */}
+                    <rect
+                      x={tagX}
+                      y={tagY}
+                      width={tagW}
+                      height={tagH}
+                      rx="3"
+                      ry="3"
+                      fill={bgFill}
+                      fillOpacity="0.95"
+                      stroke={strokeColor}
+                      strokeWidth="1.2"
+                    />
+                    {/* Level Indicator Dot */}
+                    <circle
+                      cx={tagX + 6.5}
+                      cy={tagY + tagH / 2}
+                      r="2.2"
+                      fill={strokeColor}
+                    />
+                    {/* Military Data Text */}
+                    <text
+                      x={tagX + 13}
+                      y={tagY + 11}
+                      fill={textColor}
+                      fontSize="8.5"
+                      fontWeight="bold"
+                      fontFamily="'JetBrains Mono', monospace"
+                    >
+                      {tagText}
+                    </text>
+                  </g>
+                );
+              })}
+          </g>
+        )}
 
         {/* TNI AU Airbases & Vital Objects Markers */}
         <g id="bases">

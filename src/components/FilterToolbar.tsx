@@ -11,6 +11,7 @@ import {
   Sparkles,
   Maximize2,
   Minimize2,
+  Tag,
 } from 'lucide-react';
 import { BaseType, DataSourceProvider, KoopsudRegion, ThreatLevel } from '../types';
 import { SatelliteSensor } from '../services/firmsApi';
@@ -40,6 +41,8 @@ interface FilterToolbarProps {
   isFullMap?: boolean;
   onToggleFullMap?: () => void;
   onOpenFilterDrawer?: () => void;
+  showHotspotAlertLabels?: boolean;
+  onToggleHotspotAlertLabels?: () => void;
 }
 
 export const FilterToolbar: React.FC<FilterToolbarProps> = ({
@@ -67,6 +70,8 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
   isFullMap = false,
   onToggleFullMap,
   onOpenFilterDrawer,
+  showHotspotAlertLabels = true,
+  onToggleHotspotAlertLabels,
 }) => {
   // If in Full Map mode, hide toolbar completely to maximize 100% map viewport
   if (isFullMap) return null;
@@ -108,6 +113,21 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
           <Flame className={`w-3.5 h-3.5 ${peatlandOnly ? 'text-amber-400 fill-amber-400' : 'text-slate-500'}`} />
           <span className="hidden sm:inline">Gambut</span>
         </button>
+
+        {/* Hotspot Alert Labels Quick Toggle */}
+        {onToggleHotspotAlertLabels && (
+          <button
+            onClick={onToggleHotspotAlertLabels}
+            className={`p-1.5 rounded-lg border flex items-center gap-1 transition-colors cursor-pointer shrink-0 ${
+              showHotspotAlertLabels
+                ? 'bg-red-950/90 text-red-300 border-red-600'
+                : 'bg-slate-950 text-slate-500 border-slate-800'
+            }`}
+            title="Keterangan Data Titik Api Alert (Tanpa Klik)"
+          >
+            <Tag className={`w-3.5 h-3.5 ${showHotspotAlertLabels ? 'text-red-400' : 'text-slate-500'}`} />
+          </button>
+        )}
 
         {/* Filter Drawer Toggle with Badge */}
         {onOpenFilterDrawer && (
@@ -319,6 +339,29 @@ export const FilterToolbar: React.FC<FilterToolbarProps> = ({
 
         {/* Right side: Map Mode, Sound Toggle */}
         <div className="flex items-center gap-2.5">
+          {/* Hotspot Alert Labels Toggle */}
+          {onToggleHotspotAlertLabels && (
+            <button
+              onClick={onToggleHotspotAlertLabels}
+              className={`px-2.5 py-1 text-[11px] rounded-md border flex items-center gap-1.5 transition-colors cursor-pointer ${
+                showHotspotAlertLabels
+                  ? 'bg-red-950/80 text-red-300 border-red-600 font-semibold shadow-xs'
+                  : 'bg-slate-950 text-slate-400 border-slate-800 hover:text-slate-200'
+              }`}
+              title="Tampilkan Keterangan Data pada Titik Api Alert Zone tanpa di-klik"
+            >
+              <Tag className={`w-3.5 h-3.5 ${showHotspotAlertLabels ? 'text-red-400' : 'text-slate-500'}`} />
+              <span>Label Alert Api</span>
+              <span
+                className={`text-[9px] px-1 rounded font-mono ${
+                  showHotspotAlertLabels ? 'bg-red-700 text-white' : 'bg-slate-800 text-slate-400'
+                }`}
+              >
+                {showHotspotAlertLabels ? 'AKTIF' : 'OFF'}
+              </span>
+            </button>
+          )}
+
           {/* Map Engine / Mode Selector */}
           <div className="flex items-center bg-slate-950 border border-slate-800 rounded-md p-0.5">
             <button

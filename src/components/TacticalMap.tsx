@@ -34,6 +34,7 @@ interface TacticalMapProps {
   onToggleFullMap?: () => void;
   onOpenFilterDrawer?: () => void;
   onOpenDetailModal?: (summary: BaseThreatSummary) => void;
+  showHotspotAlertLabels?: boolean;
 }
 
 export const TacticalMap: React.FC<TacticalMapProps> = ({
@@ -52,6 +53,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onToggleFullMap,
   onOpenFilterDrawer,
   onOpenDetailModal,
+  showHotspotAlertLabels = true,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const mapInstanceRef = useRef<L.Map | null>(null);
@@ -411,13 +413,43 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
 
       fireMarker.bindPopup(popupContent);
 
+      // Permanent data annotation for hotspots in alert zones without clicking
+      if (
+        showHotspotAlertLabels &&
+        (h.threatLevel === 'CRITICAL' ||
+          h.threatLevel === 'WARNING' ||
+          h.threatLevel === 'ADVISORY')
+      ) {
+        const baseAbbr = h.nearestBase ? getBaseTacticalAbbr(h.nearestBase) : 'LANUD';
+        const distStr = h.distanceKm !== undefined ? `${h.distanceKm.toFixed(1)} km` : '';
+        const frpStr = `${(h.frp || 0).toFixed(0)} MW`;
+        const peatTag = h.isPeatland ? '<span style="color:#fbbf24; margin-left:3px;">🔥GB</span>' : '';
+        const levelIcon = h.threatLevel === 'CRITICAL' ? '🔴' : h.threatLevel === 'WARNING' ? '🟠' : '🔵';
+
+        const labelHtml = `
+          <div style="display:flex; align-items:center; gap:3px; font-family:'JetBrains Mono',monospace; font-size:10px; font-weight:700;">
+            <span>${levelIcon} ${baseAbbr} ${distStr}</span>
+            <span style="opacity:0.5;">·</span>
+            <span>${frpStr}</span>
+            ${peatTag}
+          </div>
+        `;
+
+        fireMarker.bindTooltip(labelHtml, {
+          permanent: true,
+          direction: 'top',
+          offset: [0, -radius - 3],
+          className: `hotspot-alert-tooltip threat-${h.threatLevel.toLowerCase()}`,
+        });
+      }
+
       fireMarker.on('click', () => {
         if (onSelectHotspot) onSelectHotspot(h);
       });
 
       fireLayer.addLayer(fireMarker);
     });
-  }, [hotspots, onSelectHotspot]);
+  }, [hotspots, onSelectHotspot, showHotspotAlertLabels]);
 
   // Pan to selected base when it changes
   useEffect(() => {
