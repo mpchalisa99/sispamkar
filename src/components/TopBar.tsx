@@ -56,9 +56,12 @@ export const TopBar: React.FC<TopBarProps> = ({
     return (
       <header className="absolute top-2 left-2 right-2 sm:left-4 sm:right-auto z-30 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-2xl px-3 py-2 flex items-center justify-between gap-3 shadow-2xl animate-in fade-in duration-200">
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-sky-950 border border-sky-600/60 flex items-center justify-center text-sky-400">
-            <Shield className="w-4 h-4" />
-          </div>
+          {/* Logo TNI AU di pojok kiri atas */}
+          <img
+            src="/assets/aistudio/1792503945296_954409ac.jpg"
+            alt="Lambang TNI AU"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-amber-400/90 shadow-md shrink-0"
+          />
           <div className="leading-tight">
             <div className="text-xs font-bold text-white flex items-center gap-1.5">
               <span>Sispamkar TNI AU</span>
@@ -112,20 +115,32 @@ export const TopBar: React.FC<TopBarProps> = ({
               title="Keluar dari Layar Penuh"
             >
               <Minimize2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Keluar Peta Penuh</span>
+              <span className="hidden sm:inline">Keluar</span>
             </button>
           )}
+
+          {/* Logo Korps Elektronika TNI AU di pojok kanan atas */}
+          <img
+            src="/assets/aistudio/1792504086661_f409287a.jpg"
+            alt="Logo Korps Elektronika TNI AU"
+            className="w-7 h-7 sm:w-8 sm:h-8 rounded-full object-cover border border-sky-400/90 shadow-md shrink-0 ml-1"
+            title="Korps Elektronika TNI AU"
+          />
         </div>
       </header>
     );
   }
 
   return (
-    <header className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2.5 sm:py-3.5 flex items-center justify-between gap-3 sm:gap-6 shrink-0 z-20">
-      {/* Zone 1: Wordmark & Military crest icon */}
-      <div className="flex items-center gap-2.5 shrink-0">
-        <div className="w-8 h-8 sm:w-9 sm:h-9 rounded-lg bg-sky-950 border border-sky-600/60 flex items-center justify-center text-sky-400 shadow-inner shrink-0">
-          <Shield className="w-4 h-4 sm:w-5 sm:h-5 text-sky-400" />
+    <header className="bg-slate-900 border-b border-slate-800 px-3 sm:px-6 py-2 sm:py-3 flex items-center justify-between gap-3 sm:gap-6 shrink-0 z-20">
+      {/* Zone 1: Wordmark & Logo TNI AU di pojok kiri atas */}
+      <div className="flex items-center gap-3 shrink-0">
+        <div className="relative flex items-center justify-center shrink-0">
+          <img
+            src="/assets/aistudio/1792503945296_954409ac.jpg"
+            alt="Lambang TNI AU Swa Bhuwana Paksa"
+            className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-amber-400/90 shadow-md shadow-amber-950/40 ring-1 ring-sky-500/40"
+          />
         </div>
         <div className="whitespace-nowrap">
           <div className="flex items-center gap-1.5 sm:gap-2">
@@ -258,6 +273,26 @@ export const TopBar: React.FC<TopBarProps> = ({
           <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
           <span className="hidden xs:inline">{isLoading ? 'Sinkron...' : 'Sinkron'}</span>
         </button>
+
+        {/* Logo Korps Elektronika TNI AU di Pojok Kanan Atas */}
+        <div
+          className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-slate-800 shrink-0"
+          title="Korps Elektronika TNI AU"
+        >
+          <div className="relative flex items-center justify-center">
+            <img
+              src="/assets/aistudio/1792504086661_f409287a.jpg"
+              alt="Logo Korps Elektronika TNI AU"
+              className="w-9 h-9 sm:w-11 sm:h-11 rounded-full object-cover border-2 border-sky-400/90 shadow-md shadow-sky-950/40 ring-1 ring-amber-400/40"
+            />
+          </div>
+          <div className="hidden xl:flex flex-col text-left leading-tight">
+            <span className="text-[11px] font-bold text-sky-300 tracking-wider uppercase">
+              Korps Elektronika
+            </span>
+            <span className="text-[9px] text-slate-400 font-medium">TNI AU</span>
+          </div>
+        </div>
       </div>
     </header>
   );

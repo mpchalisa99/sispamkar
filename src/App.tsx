@@ -83,7 +83,15 @@ export default function App() {
 
   const [satelliteSource, setSatelliteSource] = useState<SatelliteSensor>('VIIRS_SNPP_NRT');
   const [alarmAudioEnabled, setAlarmAudioEnabled] = useState<boolean>(true);
-  const [mapMode, setMapMode] = useState<'lightweight' | 'carto' | 'satellite'>('lightweight');
+  const [mapMode, setMapMode] = useState<'lightweight' | 'carto' | 'satellite'>(() => {
+    const saved = localStorage.getItem('tni_au_map_mode') as 'lightweight' | 'carto' | 'satellite' | null;
+    return saved === 'lightweight' || saved === 'carto' || saved === 'satellite' ? saved : 'satellite';
+  });
+
+  const handleChangeMapMode = useCallback((mode: 'lightweight' | 'carto' | 'satellite') => {
+    setMapMode(mode);
+    localStorage.setItem('tni_au_map_mode', mode);
+  }, []);
 
   // Fullscreen / Full Map state for Android & Tablet
   const [isFullMap, setIsFullMap] = useState<boolean>(() => {
@@ -404,7 +412,7 @@ export default function App() {
         dangerRadiusKm={dangerRadiusKm}
         onChangeDangerRadius={setDangerRadiusKm}
         mapMode={mapMode}
-        onChangeMapMode={setMapMode}
+        onChangeMapMode={handleChangeMapMode}
         alarmAudioEnabled={alarmAudioEnabled}
         onToggleAlarmAudio={handleToggleMute}
         isFullMap={isFullMap && activeView === 'map'}
@@ -562,7 +570,7 @@ export default function App() {
         dangerRadiusKm={dangerRadiusKm}
         onChangeDangerRadius={setDangerRadiusKm}
         mapMode={mapMode}
-        onChangeMapMode={setMapMode}
+        onChangeMapMode={handleChangeMapMode}
         alarmAudioEnabled={alarmAudioEnabled}
         onToggleAlarmAudio={handleToggleMute}
         isFullMap={isFullMap}

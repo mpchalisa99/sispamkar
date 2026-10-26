@@ -118,21 +118,33 @@ export const SitrepReportModal: React.FC<SitrepReportModalProps> = ({
 
         {/* Content Document */}
         <div className="p-6 overflow-y-auto flex-1 bg-slate-950 text-slate-200 font-mono text-xs leading-relaxed space-y-6">
-          {/* Header Mark */}
-          <div className="text-center border-b border-slate-800 pb-4">
-            <div className="text-sky-400 font-bold tracking-widest text-xs uppercase">
-              TENTARA NASIONAL INDONESIA ANGKATAN UDARA
+          {/* Header Mark with Military Insignia */}
+          <div className="border-b border-slate-800 pb-4 flex items-center justify-between gap-4">
+            <img
+              src="/assets/aistudio/1792503945296_954409ac.jpg"
+              alt="Lambang TNI AU"
+              className="w-12 h-12 rounded-full object-cover border border-amber-400/80 shadow-md shrink-0 hidden sm:block"
+            />
+            <div className="text-center flex-1">
+              <div className="text-sky-400 font-bold tracking-widest text-xs uppercase">
+                TENTARA NASIONAL INDONESIA ANGKATAN UDARA
+              </div>
+              <div className="text-white font-bold text-sm tracking-wide mt-1">
+                KOMANDO OPERASI UDARA NASIONAL (KOOPSUDNAS)
+              </div>
+              <div className="text-slate-400 text-xs mt-0.5">
+                PUSAT KOMANDO DAN PENGENDALIAN OPERASI (PUSKODAL)
+              </div>
+              <div className="text-slate-500 text-[11px] mt-1.5 font-mono">
+                NOMOR: SITREP / {new Date().getFullYear()} / KARHUTLA-LANUD /{' '}
+                {new Date().toISOString().slice(5, 7)}
+              </div>
             </div>
-            <div className="text-white font-bold text-sm tracking-wide mt-1">
-              KOMANDO OPERASI UDARA NASIONAL (KOOPSUDNAS)
-            </div>
-            <div className="text-slate-400 text-xs mt-1">
-              PUSAT KOMANDO DAN PENGENDALIAN OPERASI (PUSKODAL)
-            </div>
-            <div className="text-slate-500 text-[11px] mt-2 font-mono">
-              NOMOR: SITREP / {new Date().getFullYear()} / KARHUTLA-LANUD /{' '}
-              {new Date().toISOString().slice(5, 7)}
-            </div>
+            <img
+              src="/assets/aistudio/1792504086661_f409287a.jpg"
+              alt="Logo Korps Elektronika TNI AU"
+              className="w-12 h-12 rounded-full object-cover border border-sky-400/80 shadow-md shrink-0 hidden sm:block"
+            />
           </div>
 
           {/* Section 1: Executive Overview */}
