@@ -9,6 +9,7 @@ import {
   Maximize2,
   Minimize2,
   SlidersHorizontal,
+  ShieldAlert,
 } from 'lucide-react';
 import { formatToWib } from '../utils/geoMath';
 import { DataSourceProvider } from '../types';
@@ -29,6 +30,7 @@ interface TopBarProps {
   isFullMap?: boolean;
   onToggleFullMap?: () => void;
   onOpenFilterDrawer?: () => void;
+  onOpenRing1Drawer?: () => void;
 }
 
 export const TopBar: React.FC<TopBarProps> = ({
@@ -47,6 +49,7 @@ export const TopBar: React.FC<TopBarProps> = ({
   isFullMap = false,
   onToggleFullMap,
   onOpenFilterDrawer,
+  onOpenRing1Drawer,
 }) => {
   // If in full map mode, render a sleek floating mini-bar instead of full top header
   if (isFullMap) {
@@ -70,6 +73,17 @@ export const TopBar: React.FC<TopBarProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
+          {criticalBasesCount > 0 && onOpenRing1Drawer && (
+            <button
+              onClick={onOpenRing1Drawer}
+              className="px-2 py-1 text-[11px] font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg flex items-center gap-1 shadow-sm animate-pulse transition-colors cursor-pointer"
+              title="Daftar Satuan & Aset Ring 1 Terdekat"
+            >
+              <ShieldAlert className="w-3.5 h-3.5" />
+              <span>Ring 1 ({criticalBasesCount})</span>
+            </button>
+          )}
+
           {onOpenFilterDrawer && (
             <button
               onClick={onOpenFilterDrawer}
@@ -208,6 +222,19 @@ export const TopBar: React.FC<TopBarProps> = ({
             {lastFetchedAt ? `Update ${formatToWib(lastFetchedAt)}` : 'Belum sinkron'}
           </span>
         </div>
+
+        {/* Ring 1 Threat Direct Button if critical bases exist */}
+        {criticalBasesCount > 0 && onOpenRing1Drawer && (
+          <button
+            onClick={onOpenRing1Drawer}
+            className="p-2 sm:px-3 sm:py-2 text-xs font-bold text-white bg-red-600 hover:bg-red-500 rounded-lg transition-colors flex items-center gap-1.5 shadow-md shadow-red-950 animate-pulse cursor-pointer shrink-0"
+            title="Buka Daftar Satuan & Aset Terancam Ring 1 (Diurutkan dari Api Terdekat)"
+          >
+            <ShieldAlert className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline">Satuan Ring 1</span>
+            <span>({criticalBasesCount})</span>
+          </button>
+        )}
 
         {/* Fullscreen / Full Map dedicated toggle */}
         {onToggleFullMap && (

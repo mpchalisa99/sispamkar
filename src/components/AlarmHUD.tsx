@@ -23,6 +23,7 @@ interface AlarmHUDProps {
   onTestAlarm: () => void;
   onSelectBase: (base: LanudBase) => void;
   onOpenReport: () => void;
+  onOpenRing1List?: () => void;
   isFullMap?: boolean;
 }
 
@@ -35,6 +36,7 @@ export const AlarmHUD: React.FC<AlarmHUDProps> = ({
   onTestAlarm,
   onSelectBase,
   onOpenReport,
+  onOpenRing1List,
   isFullMap = false,
 }) => {
   const [isMinimized, setIsMinimized] = useState<boolean>(false);
@@ -80,6 +82,16 @@ export const AlarmHUD: React.FC<AlarmHUDProps> = ({
           </div>
 
           <div className="flex items-center gap-1.5 shrink-0">
+            {onOpenRing1List && isCrit && (
+              <button
+                onClick={onOpenRing1List}
+                className="px-2.5 py-1 text-[11px] font-bold bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors shadow-xs flex items-center gap-1 cursor-pointer"
+                title="Daftar Satuan & Aset Ring 1 (Urut Terdekat)"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Satuan ({criticalSummaries.length})</span>
+              </button>
+            )}
             <button
               onClick={() => onSelectBase(highestThreatBase.base)}
               className="px-2.5 py-1 text-[11px] font-bold bg-white text-slate-950 rounded-lg hover:bg-slate-200 transition-colors shadow-xs"
@@ -131,6 +143,17 @@ export const AlarmHUD: React.FC<AlarmHUDProps> = ({
           </div>
 
           <div className="flex items-center gap-2 shrink-0 self-end md:self-auto flex-wrap">
+            {onOpenRing1List && (
+              <button
+                onClick={onOpenRing1List}
+                className="px-2.5 sm:px-3 py-1.5 text-xs font-bold bg-white text-slate-950 hover:bg-slate-200 rounded-lg transition-colors flex items-center gap-1.5 shadow-md cursor-pointer animate-pulse"
+                title="Daftar Satuan & Aset Ring 1 (Diurutkan dari Api Terdekat)"
+              >
+                <ShieldAlert className="w-4 h-4 text-red-600" />
+                <span>Daftar Satuan Ring 1 ({criticalSummaries.length})</span>
+              </button>
+            )}
+
             <button
               onClick={() => onSelectBase(highestThreatBase.base)}
               className="px-2.5 sm:px-3 py-1.5 text-xs font-semibold bg-red-800 hover:bg-red-700 text-white rounded-lg border border-red-600/60 transition-colors flex items-center gap-1 shadow-sm cursor-pointer"

@@ -34,6 +34,7 @@ interface TacticalMapProps {
   onToggleFullMap?: () => void;
   onOpenFilterDrawer?: () => void;
   onOpenDetailModal?: (summary: BaseThreatSummary) => void;
+  onOpenRing1Drawer?: () => void;
   showHotspotAlertLabels?: boolean;
 }
 
@@ -53,6 +54,7 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
   onToggleFullMap,
   onOpenFilterDrawer,
   onOpenDetailModal,
+  onOpenRing1Drawer,
   showHotspotAlertLabels = true,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null);
@@ -507,13 +509,25 @@ export const TacticalMap: React.FC<TacticalMapProps> = ({
         </div>
 
         {criticalBases.length > 0 && (
-          <button
-            onClick={handleFocusCritical}
-            className="pointer-events-auto bg-red-950/95 hover:bg-red-900 active:bg-red-800 border border-red-600 text-red-200 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl flex items-center gap-1.5 shadow-lg animate-pulse transition-all cursor-pointer"
-          >
-            <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
-            <span>Fokus {criticalBases.length} Lanud Bahaya</span>
-          </button>
+          <div className="flex items-center gap-1.5 pointer-events-auto">
+            {onOpenRing1Drawer && (
+              <button
+                onClick={onOpenRing1Drawer}
+                className="bg-red-600 hover:bg-red-500 active:bg-red-700 text-white text-[11px] sm:text-xs font-bold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl flex items-center gap-1.5 shadow-lg shadow-red-950 animate-pulse transition-all cursor-pointer"
+                title="Buka Daftar Satuan & Aset Terancam Ring 1 (Diurutkan dari Api Terdekat)"
+              >
+                <ShieldAlert className="w-3.5 h-3.5" />
+                <span>Satuan Ring 1 ({criticalBases.length})</span>
+              </button>
+            )}
+            <button
+              onClick={handleFocusCritical}
+              className="bg-red-950/95 hover:bg-red-900 active:bg-red-800 border border-red-600 text-red-200 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl flex items-center gap-1.5 shadow-lg transition-all cursor-pointer"
+              title="Fokuskan Peta ke Lanud Terancam"
+            >
+              <span>Fokus {criticalBases.length} Lanud</span>
+            </button>
+          </div>
         )}
       </div>
 

@@ -29,6 +29,7 @@ import { ThreatsListView } from './components/ThreatsListView';
 import { AirbasesDirectory } from './components/AirbasesDirectory';
 import { MobileNavBar } from './components/MobileNavBar';
 import { MobileFilterDrawer } from './components/MobileFilterDrawer';
+import { Ring1AssetsDrawer } from './components/Ring1AssetsDrawer';
 import { AlertCircle, RefreshCw, Flame, Sparkles } from 'lucide-react';
 
 /**
@@ -103,6 +104,7 @@ export default function App() {
   const [selectedDetailSummary, setSelectedDetailSummary] = useState<BaseThreatSummary | null>(null);
   const [isReportModalOpen, setIsReportModalOpen] = useState<boolean>(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState<boolean>(false);
+  const [isRing1DrawerOpen, setIsRing1DrawerOpen] = useState<boolean>(false);
 
   // Data Loading
   const [rawHotspots, setRawHotspots] = useState<FireHotspot[]>([]);
@@ -282,9 +284,11 @@ export default function App() {
       });
   }, [allThreatSummaries, filteredBases, selectedThreatLevel]);
 
-  // Critical & Warning base lists for Alarms
+  // Critical & Warning base lists for Alarms (strictly sorted by nearest fire hotspot distance)
   const criticalSummaries = useMemo(() => {
-    return allThreatSummaries.filter((s) => s.threatLevel === 'CRITICAL');
+    return allThreatSummaries
+      .filter((s) => s.threatLevel === 'CRITICAL' && s.nearestHotspotDistanceKm !== null)
+      .sort((a, b) => (a.nearestHotspotDistanceKm ?? 999) - (b.nearestHotspotDistanceKm ?? 999));
   }, [allThreatSummaries]);
 
   const warningSummaries = useMemo(() => {
@@ -363,6 +367,7 @@ export default function App() {
         isFullMap={isFullMap && activeView === 'map'}
         onToggleFullMap={handleToggleFullMap}
         onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
+        onOpenRing1Drawer={() => setIsRing1DrawerOpen(true)}
       />
 
       {/* Alarm Tactical HUD Banner */}
@@ -375,6 +380,7 @@ export default function App() {
         onTestAlarm={handleTestAlarm}
         onSelectBase={handleSelectBaseFromAnywhere}
         onOpenReport={() => setIsReportModalOpen(true)}
+        onOpenRing1List={() => setIsRing1DrawerOpen(true)}
         isFullMap={isFullMap && activeView === 'map'}
       />
 
@@ -468,6 +474,7 @@ export default function App() {
               onToggleFullMap={handleToggleFullMap}
               onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
               onOpenDetailModal={handleOpenDetailModal}
+              onOpenRing1Drawer={() => setIsRing1DrawerOpen(true)}
               showHotspotAlertLabels={showHotspotAlertLabels}
             />
           ) : (
@@ -492,6 +499,7 @@ export default function App() {
               onToggleFullMap={handleToggleFullMap}
               onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
               onOpenDetailModal={handleOpenDetailModal}
+              onOpenRing1Drawer={() => setIsRing1DrawerOpen(true)}
               showHotspotAlertLabels={showHotspotAlertLabels}
             />
           )
@@ -503,6 +511,7 @@ export default function App() {
               threatSummaries={filteredThreatSummaries}
               onSelectBase={handleSelectBaseFromAnywhere}
               onOpenDetailModal={handleOpenDetailModal}
+              onOpenRing1Drawer={() => setIsRing1DrawerOpen(true)}
             />
           </div>
         )}
@@ -603,6 +612,18 @@ export default function App() {
           onClose={() => setIsSettingsModalOpen(false)}
         />
       )}
+
+      {/* Ring 1 Critical Military Units & Assets Drawer (Sorted from nearest hotspot) */}
+      <Ring1AssetsDrawer
+        isOpen={isRing1DrawerOpen}
+        onClose={() => setIsRing1DrawerOpen(false)}
+        ring1Summaries={criticalSummaries}
+        dangerRadiusKm={dangerRadiusKm}
+        onSelectBase={handleSelectBaseFromAnywhere}
+        onOpenDetailModal={handleOpenDetailModal}
+        onOpenReport={() => setIsReportModalOpen(true)}
+        onShowAllThreats={() => setActiveView('threats')}
+      />
     </div>
   );
 }
