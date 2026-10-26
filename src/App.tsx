@@ -27,6 +27,8 @@ import { SitrepReportModal } from './components/SitrepReportModal';
 import { MapKeySettingsModal } from './components/MapKeySettingsModal';
 import { ThreatsListView } from './components/ThreatsListView';
 import { AirbasesDirectory } from './components/AirbasesDirectory';
+import { MobileNavBar } from './components/MobileNavBar';
+import { MobileFilterDrawer } from './components/MobileFilterDrawer';
 import { AlertCircle, RefreshCw, Flame, Sparkles } from 'lucide-react';
 
 /**
@@ -82,6 +84,12 @@ export default function App() {
   const [alarmAudioEnabled, setAlarmAudioEnabled] = useState<boolean>(true);
   const [mapMode, setMapMode] = useState<'lightweight' | 'carto' | 'satellite'>('lightweight');
 
+  // Fullscreen / Full Map state for Android & Tablet
+  const [isFullMap, setIsFullMap] = useState<boolean>(() => {
+    return localStorage.getItem('tni_au_full_map') === 'true';
+  });
+  const [isFilterDrawerOpen, setIsFilterDrawerOpen] = useState<boolean>(false);
+
   // Filter States
   const [selectedKoopsud, setSelectedKoopsud] = useState<FilterConfig['koopsud']>('ALL');
   const [selectedBaseType, setSelectedBaseType] = useState<FilterConfig['baseType']>('ALL');
@@ -102,6 +110,43 @@ export default function App() {
   const [lastFetchedAt, setLastFetchedAt] = useState<Date | null>(null);
   const [fetchError, setFetchError] = useState<string | null>(null);
   const [infoNotice, setInfoNotice] = useState<string | null>(null);
+
+  // Handle Full Map toggle with native browser Fullscreen API
+  const handleToggleFullMap = useCallback(() => {
+    setIsFullMap((prev) => {
+      const next = !prev;
+      localStorage.setItem('tni_au_full_map', String(next));
+      try {
+        if (next) {
+          if (document.documentElement.requestFullscreen && !document.fullscreenElement) {
+            document.documentElement.requestFullscreen().catch(() => {});
+          }
+        } else {
+          if (document.fullscreenElement && document.exitFullscreen) {
+            document.exitFullscreen().catch(() => {});
+          }
+        }
+      } catch (e) {
+        // Fallback silently if unsupported in iframe
+      }
+      return next;
+    });
+  }, []);
+
+  // Listen to native browser fullscreenchange
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      if (!document.fullscreenElement && isFullMap) {
+        // User exited fullscreen via browser back button or ESC
+        setIsFullMap(false);
+        localStorage.setItem('tni_au_full_map', 'false');
+      }
+    };
+    document.addEventListener('fullscreenchange', handleFullscreenChange);
+    return () => {
+      document.removeEventListener('fullscreenchange', handleFullscreenChange);
+    };
+  }, [isFullMap]);
 
   // Fetch Fire Data (supporting FIRMS, GFW, and COMBINED)
   const loadFireData = useCallback(
@@ -214,7 +259,7 @@ export default function App() {
     });
   }, [selectedKoopsud, selectedBaseType, searchQuery]);
 
-  // Filtered Threat Summaries (incorporates threat level filter)
+  // Filtered Threat Summaries
   const filteredThreatSummaries = useMemo(() => {
     const summaryMap = new Map<string, BaseThreatSummary>();
     allThreatSummaries.forEach((s) => summaryMap.set(s.base.id, s));
@@ -293,7 +338,7 @@ export default function App() {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-950 text-slate-100 overflow-hidden select-none">
+    <div className="flex flex-col h-screen h-[100dvh] w-full bg-slate-950 text-slate-100 overflow-hidden select-none">
       {/* Top Bar Header */}
       <TopBar
         onRefreshData={() => loadFireData(true)}
@@ -308,6 +353,9 @@ export default function App() {
         onOpenReport={() => setIsReportModalOpen(true)}
         activeView={activeView}
         onChangeView={setActiveView}
+        isFullMap={isFullMap && activeView === 'map'}
+        onToggleFullMap={handleToggleFullMap}
+        onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
       />
 
       {/* Alarm Tactical HUD Banner */}
@@ -320,9 +368,10 @@ export default function App() {
         onTestAlarm={handleTestAlarm}
         onSelectBase={handleSelectBaseFromAnywhere}
         onOpenReport={() => setIsReportModalOpen(true)}
+        isFullMap={isFullMap && activeView === 'map'}
       />
 
-      {/* Filter Toolbar */}
+      {/* Filter Toolbar (Hidden in full map mode or on small screens replaced by drawer) */}
       <FilterToolbar
         selectedKoopsud={selectedKoopsud}
         onChangeKoopsud={setSelectedKoopsud}
@@ -345,20 +394,23 @@ export default function App() {
         onChangeMapMode={setMapMode}
         alarmAudioEnabled={alarmAudioEnabled}
         onToggleAlarmAudio={handleToggleMute}
+        isFullMap={isFullMap && activeView === 'map'}
+        onToggleFullMap={handleToggleFullMap}
+        onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
       />
 
       {/* Notice / GFW Info Banner */}
-      {infoNotice && (
-        <div className="bg-emerald-950/80 border-b border-emerald-800 px-6 py-2 flex items-center justify-between text-xs text-emerald-200">
+      {infoNotice && !isFullMap && (
+        <div className="bg-emerald-950/80 border-b border-emerald-800 px-3 sm:px-6 py-2 flex items-center justify-between text-xs text-emerald-200 shrink-0">
           <div className="flex items-center gap-2">
             <Flame className="w-4 h-4 text-emerald-400 shrink-0" />
-            <span>
+            <span className="truncate">
               <strong>Global Forest Watch:</strong> {infoNotice}
             </span>
           </div>
           <button
             onClick={() => setIsSettingsModalOpen(true)}
-            className="text-white bg-emerald-800 hover:bg-emerald-700 px-2 py-0.5 rounded text-[11px] font-semibold cursor-pointer shrink-0"
+            className="text-white bg-emerald-800 hover:bg-emerald-700 px-2 py-0.5 rounded text-[11px] font-semibold cursor-pointer shrink-0 ml-2"
           >
             Atur Key GFW
           </button>
@@ -366,20 +418,20 @@ export default function App() {
       )}
 
       {/* API Error Notification if any */}
-      {fetchError && (
-        <div className="bg-red-950/90 border-b border-red-700 px-6 py-2 flex items-center justify-between text-xs text-red-200">
+      {fetchError && !isFullMap && (
+        <div className="bg-red-950/90 border-b border-red-700 px-3 sm:px-6 py-2 flex items-center justify-between text-xs text-red-200 shrink-0">
           <div className="flex items-center gap-2">
             <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
-            <span>
-              Kendala API Satelit: <strong>{fetchError}</strong>. Menampilkan data lokal cadangan.
+            <span className="truncate">
+              Kendala API: <strong>{fetchError}</strong>. Data cadangan aktif.
             </span>
           </div>
           <button
             onClick={() => loadFireData(true)}
-            className="text-white bg-red-800 hover:bg-red-700 px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer"
+            className="text-white bg-red-800 hover:bg-red-700 px-2 py-0.5 rounded text-[11px] font-semibold flex items-center gap-1 cursor-pointer shrink-0 ml-2"
           >
             <RefreshCw className="w-3 h-3" />
-            Coba Lagi
+            <span>Coba Lagi</span>
           </button>
         </div>
       )}
@@ -403,6 +455,10 @@ export default function App() {
               dangerRadiusKm={dangerRadiusKm}
               warningRadiusKm={warningRadiusKm}
               advisoryRadiusKm={advisoryRadiusKm}
+              isFullMap={isFullMap}
+              onToggleFullMap={handleToggleFullMap}
+              onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
+              onOpenDetailModal={handleOpenDetailModal}
             />
           ) : (
             <TacticalMap
@@ -422,6 +478,10 @@ export default function App() {
               advisoryRadiusKm={advisoryRadiusKm}
               mapStyle={mapMode === 'satellite' ? 'satellite' : 'dark'}
               cartoApiKey={cartoApiKey}
+              isFullMap={isFullMap}
+              onToggleFullMap={handleToggleFullMap}
+              onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
+              onOpenDetailModal={handleOpenDetailModal}
             />
           )
         )}
@@ -447,6 +507,48 @@ export default function App() {
           </div>
         )}
       </main>
+
+      {/* Mobile Bottom Navigation Bar (Hidden when in full map mode or on desktop) */}
+      <MobileNavBar
+        activeView={activeView}
+        onChangeView={setActiveView}
+        criticalBasesCount={criticalSummaries.length}
+        warningBasesCount={warningSummaries.length}
+        onOpenReport={() => setIsReportModalOpen(true)}
+        onOpenFilterDrawer={() => setIsFilterDrawerOpen(true)}
+        isFullMap={isFullMap && activeView === 'map'}
+        onToggleFullMap={handleToggleFullMap}
+      />
+
+      {/* Mobile & Tablet Filter Drawer / Bottom Sheet */}
+      <MobileFilterDrawer
+        isOpen={isFilterDrawerOpen}
+        onClose={() => setIsFilterDrawerOpen(false)}
+        selectedKoopsud={selectedKoopsud}
+        onChangeKoopsud={setSelectedKoopsud}
+        selectedBaseType={selectedBaseType}
+        onChangeBaseType={setSelectedBaseType}
+        selectedThreatLevel={selectedThreatLevel}
+        onChangeThreatLevel={setSelectedThreatLevel}
+        satelliteSource={satelliteSource}
+        onChangeSatelliteSource={setSatelliteSource}
+        dataSource={dataSource}
+        onChangeDataSource={handleChangeDataSource}
+        peatlandOnly={peatlandOnly}
+        onTogglePeatlandOnly={() => setPeatlandOnly(!peatlandOnly)}
+        peatlandCount={peatlandCount}
+        searchQuery={searchQuery}
+        onChangeSearchQuery={setSearchQuery}
+        dangerRadiusKm={dangerRadiusKm}
+        onChangeDangerRadius={setDangerRadiusKm}
+        mapMode={mapMode}
+        onChangeMapMode={setMapMode}
+        alarmAudioEnabled={alarmAudioEnabled}
+        onToggleAlarmAudio={handleToggleMute}
+        isFullMap={isFullMap}
+        onToggleFullMap={handleToggleFullMap}
+        onOpenSettings={() => setIsSettingsModalOpen(true)}
+      />
 
       {/* Base Threat & SOP Detail Modal */}
       {selectedDetailSummary && (

@@ -43,7 +43,7 @@ export const AirbasesDirectory: React.FC<AirbasesDirectoryProps> = ({
   });
 
   return (
-    <div className="max-w-7xl mx-auto p-6 space-y-4">
+    <div className="max-w-7xl mx-auto p-3.5 sm:p-6 space-y-4 pb-24 md:pb-6">
       {/* Directory Filter Bar */}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>

@@ -1,7 +1,23 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useCallback } from 'react';
 import { LanudBase, BaseThreatSummary, FireHotspot } from '../types';
-import { ZoomIn, ZoomOut, RotateCcw, Crosshair, Compass, ShieldAlert, AlertTriangle, Layers } from 'lucide-react';
+import {
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  Crosshair,
+  Compass,
+  ShieldAlert,
+  AlertTriangle,
+  Layers,
+  Maximize2,
+  Minimize2,
+  Info,
+  SlidersHorizontal,
+  ChevronDown,
+  ChevronUp,
+} from 'lucide-react';
 import { calculateDistanceKm, getCompassDirection, formatFirmsUtcToWib, getBaseTacticalAbbr } from '../utils/geoMath';
+import { MobileBaseDetailSheet } from './MobileBaseDetailSheet';
 
 // Geographic bounds of Indonesia archipelago
 const MIN_LON = 94.0;
@@ -21,7 +37,6 @@ function geoToSvg(lat: number, lon: number): { x: number; y: number } {
 
 // Convert distance in km to SVG canvas pixel radius at latitude
 function kmToSvgPixels(km: number, lat: number = -2): number {
-  // At equator, 1 degree lon ≈ 111.32 km
   const kmPerLonDegree = 111.32 * Math.cos((lat * Math.PI) / 180);
   const degrees = km / kmPerLonDegree;
   const pixelsPerDegree = SVG_WIDTH / (MAX_LON - MIN_LON);
@@ -58,6 +73,10 @@ interface LightweightTacticalMapProps {
   warningRadiusKm: number;
   advisoryRadiusKm: number;
   onSelectHotspot?: (hotspot: FireHotspot) => void;
+  isFullMap?: boolean;
+  onToggleFullMap?: () => void;
+  onOpenFilterDrawer?: () => void;
+  onOpenDetailModal?: (summary: BaseThreatSummary) => void;
 }
 
 export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
@@ -70,6 +89,10 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
   warningRadiusKm,
   advisoryRadiusKm,
   onSelectHotspot,
+  isFullMap = false,
+  onToggleFullMap,
+  onOpenFilterDrawer,
+  onOpenDetailModal,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -79,7 +102,25 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
   const [isDragging, setIsDragging] = useState<boolean>(false);
   const [dragStart, setDragStart] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
 
-  // Hover states
+  // Touch tracking for pinch-to-zoom on Android & Tablets
+  const touchStateRef = useRef<{
+    mode: 'none' | 'drag' | 'pinch';
+    initialDist: number;
+    initialZoom: number;
+    initialPan: { x: number; y: number };
+    startTouch: { x: number; y: number };
+    lastTapTime: number;
+  }>({
+    mode: 'none',
+    initialDist: 0,
+    initialZoom: 1,
+    initialPan: { x: 0, y: 0 },
+    startTouch: { x: 0, y: 0 },
+    lastTapTime: 0,
+  });
+
+  // UI state
+  const [isLegendExpanded, setIsLegendExpanded] = useState<boolean>(false);
   const [hoveredBase, setHoveredBase] = useState<LanudBase | null>(null);
   const [hoveredHotspot, setHoveredHotspot] = useState<FireHotspot | null>(null);
   const [tooltipPos, setTooltipPos] = useState<{ x: number; y: number }>({ x: 0, y: 0 });
@@ -91,6 +132,12 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
     return map;
   }, [threatSummaries]);
 
+  // Selected base summary
+  const selectedBaseSummary = useMemo(() => {
+    if (!selectedBase) return null;
+    return summaryMap.get(selectedBase.id) || null;
+  }, [selectedBase, summaryMap]);
+
   // Find critical bases for focus button
   const criticalBases = useMemo(() => {
     return threatSummaries.filter((s) => s.threatLevel === 'CRITICAL');
@@ -101,7 +148,7 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
     if (selectedBase && containerRef.current) {
       const { x, y } = geoToSvg(selectedBase.lat, selectedBase.lon);
       const containerRect = containerRef.current.getBoundingClientRect();
-      const targetZoom = 3.5;
+      const targetZoom = Math.min(Math.max(window.innerWidth < 768 ? 2.8 : 3.5, 1.8), 5);
 
       const newPanX = containerRect.width / 2 - (x / SVG_WIDTH) * (containerRect.width * targetZoom);
       const newPanY = containerRect.height / 2 - (y / SVG_HEIGHT) * (containerRect.height * targetZoom);
@@ -127,6 +174,80 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
   };
 
   const handleMouseUp = () => {
+    setIsDragging(false);
+  };
+
+  // Touch handlers (Single finger drag & Multi-touch Pinch to Zoom for Android/Tablet)
+  const handleTouchStart = (e: React.TouchEvent) => {
+    if (e.touches.length === 1) {
+      const touch = e.touches[0];
+      const now = Date.now();
+      const timeDiff = now - touchStateRef.current.lastTapTime;
+      touchStateRef.current.lastTapTime = now;
+
+      // Double tap to zoom in
+      if (timeDiff < 300) {
+        if (containerRef.current) {
+          const rect = containerRef.current.getBoundingClientRect();
+          const touchX = touch.clientX - rect.left;
+          const touchY = touch.clientY - rect.top;
+          const newZoom = Math.min(zoom * 1.5, 8);
+          const newPanX = touchX - (touchX - pan.x) * (newZoom / zoom);
+          const newPanY = touchY - (touchY - pan.y) * (newZoom / zoom);
+          setZoom(newZoom);
+          setPan({ x: newPanX, y: newPanY });
+          return;
+        }
+      }
+
+      touchStateRef.current.mode = 'drag';
+      touchStateRef.current.startTouch = { x: touch.clientX - pan.x, y: touch.clientY - pan.y };
+      setIsDragging(true);
+    } else if (e.touches.length === 2) {
+      // Pinch to Zoom
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const dist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+      touchStateRef.current.mode = 'pinch';
+      touchStateRef.current.initialDist = dist;
+      touchStateRef.current.initialZoom = zoom;
+      touchStateRef.current.initialPan = { ...pan };
+      setIsDragging(true);
+    }
+  };
+
+  const handleTouchMove = (e: React.TouchEvent) => {
+    if (e.touches.length === 1 && touchStateRef.current.mode === 'drag') {
+      const touch = e.touches[0];
+      setPan({
+        x: touch.clientX - touchStateRef.current.startTouch.x,
+        y: touch.clientY - touchStateRef.current.startTouch.y,
+      });
+    } else if (e.touches.length === 2 && touchStateRef.current.mode === 'pinch') {
+      const t1 = e.touches[0];
+      const t2 = e.touches[1];
+      const currentDist = Math.hypot(t1.clientX - t2.clientX, t1.clientY - t2.clientY);
+
+      if (touchStateRef.current.initialDist > 0 && containerRef.current) {
+        const factor = currentDist / touchStateRef.current.initialDist;
+        const newZoom = Math.min(Math.max(touchStateRef.current.initialZoom * factor, 0.8), 8);
+
+        const rect = containerRef.current.getBoundingClientRect();
+        const midX = (t1.clientX + t2.clientX) / 2 - rect.left;
+        const midY = (t1.clientY + t2.clientY) / 2 - rect.top;
+
+        const newPanX = midX - (midX - touchStateRef.current.initialPan.x) * (newZoom / touchStateRef.current.initialZoom);
+        const newPanY = midY - (midY - touchStateRef.current.initialPan.y) * (newZoom / touchStateRef.current.initialZoom);
+
+        setZoom(newZoom);
+        setPan({ x: newPanX, y: newPanY });
+      }
+    }
+  };
+
+  const handleTouchEnd = () => {
+    touchStateRef.current.mode = 'none';
     setIsDragging(false);
   };
 
@@ -176,58 +297,101 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
+      onTouchStart={handleTouchStart}
+      onTouchMove={handleTouchMove}
+      onTouchEnd={handleTouchEnd}
+      onTouchCancel={handleTouchEnd}
       onWheel={handleWheel}
-      className="relative w-full h-full overflow-hidden bg-slate-950 select-none cursor-grab active:cursor-grabbing"
+      className="relative w-full h-full overflow-hidden bg-slate-950 select-none cursor-grab active:cursor-grabbing touch-none"
       style={{ touchAction: 'none' }}
     >
-      {/* Tactical Canvas Header Bar */}
-      <div className="absolute top-4 left-6 z-20 flex items-center gap-3 pointer-events-none">
-        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-lg px-3.5 py-2 shadow-xl flex items-center gap-2.5">
+      {/* Tactical Canvas Header Badge (Compact on mobile) */}
+      <div className="absolute top-3 left-3 sm:top-4 sm:left-6 z-20 flex flex-wrap items-center gap-2 pointer-events-none">
+        <div className="bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl px-2.5 py-1.5 sm:px-3.5 sm:py-2 shadow-xl flex items-center gap-2 pointer-events-auto">
           <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse"></div>
           <div>
-            <div className="text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
-              <span>RADAR TAKTIS KARHUTLA RI</span>
-              <span className="text-[10px] text-sky-400 bg-sky-950 px-1 rounded border border-sky-800">
-                OFFLINE VECTOR
+            <div className="text-[11px] sm:text-xs font-bold text-white tracking-wide flex items-center gap-1.5">
+              <span>RADAR TAKTIS KARHUTLA</span>
+              <span className="text-[9px] sm:text-[10px] text-sky-400 bg-sky-950 px-1 py-0.2 rounded border border-sky-800">
+                VEKTOR 0MS
               </span>
             </div>
-            <div className="text-[10px] text-slate-400 font-mono-numbers">
-              Area: 94°BT–142°BT · {bases.length} Lanud & Obvit Terpantau
+            <div className="text-[9px] sm:text-[10px] text-slate-400 font-mono-numbers hidden sm:block">
+              {bases.length} Lanud/Obvit · {hotspots.length.toLocaleString()} Titik Api Aktif
             </div>
           </div>
         </div>
 
+        {/* Quick Focus Critical Threat button */}
         {criticalBases.length > 0 && (
           <button
             onClick={handleFocusCritical}
-            className="pointer-events-auto bg-red-950/90 hover:bg-red-900 border border-red-600/80 text-red-200 text-xs font-semibold px-3 py-2 rounded-lg flex items-center gap-1.5 shadow-lg animate-pulse transition-colors"
+            className="pointer-events-auto bg-red-950/95 hover:bg-red-900 active:bg-red-800 border border-red-600 text-red-200 text-[11px] sm:text-xs font-semibold px-2.5 py-1.5 sm:px-3 sm:py-2 rounded-xl flex items-center gap-1.5 shadow-lg animate-pulse transition-all cursor-pointer"
           >
-            <ShieldAlert className="w-4 h-4 text-red-400" />
-            <span>Fokus {criticalBases.length} Pangkalan Bahaya</span>
+            <ShieldAlert className="w-3.5 h-3.5 text-red-400" />
+            <span>Fokus {criticalBases.length} Lanud Bahaya</span>
           </button>
         )}
       </div>
 
-      {/* Controls Overlay (Top Right) */}
-      <div className="absolute top-4 right-6 z-20 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-lg p-1.5 shadow-xl pointer-events-auto">
+      {/* Floating Tactical Touch Controls (Optimized for Android Thumb Ergonomics) */}
+      <div className="absolute top-3 right-3 sm:top-4 sm:right-6 z-20 flex flex-col gap-1.5 bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl p-1 shadow-2xl pointer-events-auto">
+        {/* Fullscreen / Full Map Toggle */}
+        {onToggleFullMap && (
+          <button
+            onClick={onToggleFullMap}
+            className={`p-2.5 sm:p-2 rounded-lg transition-colors cursor-pointer flex items-center justify-center ${
+              isFullMap
+                ? 'bg-sky-600 text-white font-bold shadow-md shadow-sky-900/40'
+                : 'text-slate-300 hover:text-white hover:bg-slate-800'
+            }`}
+            title={isFullMap ? 'Kembali ke Tampilan Normal' : 'Mode Layar Penuh Maksimal'}
+            aria-label="Layar Penuh"
+          >
+            {isFullMap ? <Minimize2 className="w-4 h-4" /> : <Maximize2 className="w-4 h-4" />}
+          </button>
+        )}
+
+        {/* Mobile Filter Drawer Button */}
+        {onOpenFilterDrawer && (
+          <button
+            onClick={onOpenFilterDrawer}
+            className="p-2.5 sm:p-2 text-sky-400 hover:text-white hover:bg-slate-800 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
+            title="Buka Filter & Sensor"
+            aria-label="Filter"
+          >
+            <SlidersHorizontal className="w-4 h-4" />
+          </button>
+        )}
+
+        <div className="w-full h-px bg-slate-800 my-0.5" />
+
+        {/* Zoom In (+) */}
         <button
           onClick={handleZoomIn}
-          className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors"
+          className="p-2.5 sm:p-2 text-slate-300 hover:text-white hover:bg-slate-800 active:bg-slate-700 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
           title="Perbesar Peta (+)"
+          aria-label="Zoom In"
         >
           <ZoomIn className="w-4 h-4" />
         </button>
+
+        {/* Zoom Out (-) */}
         <button
           onClick={handleZoomOut}
-          className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors"
+          className="p-2.5 sm:p-2 text-slate-300 hover:text-white hover:bg-slate-800 active:bg-slate-700 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
           title="Perkecil Peta (-)"
+          aria-label="Zoom Out"
         >
           <ZoomOut className="w-4 h-4" />
         </button>
+
+        {/* Reset Nusantara */}
         <button
           onClick={handleResetView}
-          className="p-2 text-slate-300 hover:text-white hover:bg-slate-800 rounded transition-colors"
+          className="p-2.5 sm:p-2 text-slate-300 hover:text-white hover:bg-slate-800 active:bg-slate-700 rounded-lg transition-colors cursor-pointer flex items-center justify-center"
           title="Reset Sudut Pandang Nusantara"
+          aria-label="Reset View"
         >
           <RotateCcw className="w-4 h-4" />
         </button>
@@ -248,12 +412,6 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
           <pattern id="tacticalGrid" width="100" height="100" patternUnits="userSpaceOnUse">
             <path d="M 100 0 L 0 0 0 100" fill="none" stroke="#1e293b" strokeWidth="0.8" strokeDasharray="3,3" />
           </pattern>
-
-          {/* Radar Radial Sweep Gradient */}
-          <radialGradient id="radarScan" cx="50%" cy="50%" r="50%">
-            <stop offset="0%" stopColor="#0284c7" stopOpacity="0.15" />
-            <stop offset="100%" stopColor="#0284c7" stopOpacity="0" />
-          </radialGradient>
 
           {/* Fire Glow Filter */}
           <filter id="fireGlow" x="-50%" y="-50%" width="200%" height="200%">
@@ -307,7 +465,7 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
           ))}
         </g>
 
-        {/* Territorial Water Boundaries (ALKI / ZEE subtle styling) */}
+        {/* Territorial Water Boundaries */}
         <g id="regions" opacity="0.3">
           <text x="320" y="240" fill="#64748b" fontSize="18" fontWeight="bold" fontFamily="monospace">
             WILAYAH KOOPSUD I
@@ -355,7 +513,7 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
                   cy={y}
                   r={r15}
                   fill="#f59e0b"
-                  fillOpacity="0.06"
+                  fillOpacity="0.08"
                   stroke="#f59e0b"
                   strokeWidth="1.2"
                   strokeDasharray="4, 4"
@@ -474,6 +632,9 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
                 }}
                 onMouseLeave={() => setHoveredBase(null)}
               >
+                {/* Touch Hit Area (Invisible large circle for easy fingertip tapping on mobile) */}
+                <circle r="22" fill="transparent" />
+
                 {/* Critical Pulse */}
                 {threat === 'CRITICAL' && (
                   <circle r="18" fill="none" stroke="#ef4444" strokeWidth="1.5" opacity="0.7">
@@ -493,7 +654,7 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
                 {/* Inner Symbol */}
                 <circle r={isSelected ? 4 : 3} fill={markerColor} />
 
-                {/* Permanent Base Abbreviation Badge without clicking */}
+                {/* Permanent Base Abbreviation Badge */}
                 {(() => {
                   const baseAbbr = getBaseTacticalAbbr(base);
                   const badgeW = baseAbbr.length * 6.5 + 8;
@@ -519,7 +680,6 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
                         fontSize="9.5"
                         fontWeight="bold"
                         fontFamily="'JetBrains Mono', monospace"
-                        letterSpacing="0.02em"
                       >
                         {baseAbbr}
                       </text>
@@ -532,30 +692,18 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
         </g>
       </svg>
 
-      {/* Floating Tactical Base Tooltip */}
-      {hoveredBase && (
+      {/* Desktop Hover Base Tooltip */}
+      {hoveredBase && !selectedBase && (
         <div
-          className="fixed z-50 pointer-events-none bg-slate-900/95 border border-slate-700 rounded-lg p-3 text-xs text-white shadow-2xl max-w-xs -translate-x-1/2 -translate-y-full mb-3"
-          style={{ left: tooltipPos.x, top: tooltipPos.y - 12 }}
+          className="hidden md:block fixed z-50 pointer-events-none bg-slate-900/95 border border-slate-700 rounded-lg p-3 text-xs text-white shadow-2xl max-w-xs -translate-x-1/2 -translate-y-full mb-3"
+          style={{ left: tooltipPos.x, top: tooltipPos.y - 10 }}
         >
-          <div className="flex items-center justify-between gap-2 border-b border-slate-800 pb-1.5 mb-1.5">
-            <div>
-              <div className="font-bold text-white text-xs">{hoveredBase.name}</div>
-              <div className="text-[10px] text-sky-400 font-mono">
-                {hoveredBase.code} · {hoveredBase.type}
-              </div>
-            </div>
-            {summaryMap.get(hoveredBase.id)?.threatLevel === 'CRITICAL' && (
-              <span className="bg-red-600 text-white text-[9px] font-bold px-1.5 py-0.5 rounded">
-                BAHAYA
-              </span>
-            )}
+          <div className="font-bold text-sm text-sky-400 flex items-center justify-between mb-1">
+            <span>{hoveredBase.name}</span>
+            <span className="text-[10px] bg-slate-800 px-1.5 py-0.5 rounded font-mono">{hoveredBase.code}</span>
           </div>
           <div className="text-[11px] text-slate-300 space-y-0.5">
             <div>Lokasi: {hoveredBase.city}, {hoveredBase.province}</div>
-            {hoveredBase.runwayOrientation && (
-              <div>Runway: {hoveredBase.runwayOrientation} ({hoveredBase.runwayLengthM}m)</div>
-            )}
             {summaryMap.get(hoveredBase.id)?.nearestHotspotDistanceKm !== null ? (
               <div className="text-amber-400 font-semibold pt-1">
                 Api Terdekat: {summaryMap.get(hoveredBase.id)?.nearestHotspotDistanceKm} km
@@ -567,7 +715,7 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
         </div>
       )}
 
-      {/* Floating Tactical Hotspot Tooltip */}
+      {/* Hotspot Tooltip */}
       {hoveredHotspot && (
         <div
           className="fixed z-50 pointer-events-none bg-slate-900/95 border border-slate-700 rounded-lg p-2.5 text-xs text-white shadow-2xl max-w-xs -translate-x-1/2 -translate-y-full mb-3"
@@ -581,52 +729,87 @@ export const LightweightTacticalMap: React.FC<LightweightTacticalMapProps> = ({
             <div>Koordinat: {hoveredHotspot.latitude.toFixed(3)}, {hoveredHotspot.longitude.toFixed(3)}</div>
             <div>Waktu Deteksi: <span className="text-sky-300 font-bold">{formatFirmsUtcToWib(hoveredHotspot.acq_date, hoveredHotspot.acq_time).fullWibString}</span></div>
             <div>Daya Radiasi (FRP): <strong className="text-amber-300">{hoveredHotspot.frp.toFixed(1)} MW</strong></div>
-            <div>Suhu: {(hoveredHotspot.bright_ti4 - 273.15).toFixed(1)}°C</div>
             {hoveredHotspot.isPeatland && (
               <div className="text-amber-400 font-bold pt-0.5 flex items-center gap-1 font-sans">
                 <span>⚠️ Wilayah Lahan Gambut (is__peatland: true)</span>
-              </div>
-            )}
-            {hoveredHotspot.nearestBase && (
-              <div className="text-red-300 pt-0.5 font-sans">
-                {hoveredHotspot.distanceKm} km ke {hoveredHotspot.nearestBase.name}
               </div>
             )}
           </div>
         </div>
       )}
 
-      {/* Legend & Instructions (Bottom Left) */}
-      <div className="absolute bottom-6 left-6 z-10 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-lg p-3 text-xs text-slate-300 shadow-xl max-w-xs pointer-events-auto">
-        <div className="font-semibold text-slate-100 text-xs mb-2 flex items-center justify-between border-b border-slate-800 pb-1.5">
-          <span>LEGENDA PERIMETER PERTAHANAN</span>
-          <span className="font-mono text-[10px] text-sky-400">VEKTOR TAKTIS</span>
-        </div>
-        <div className="space-y-1.5 text-[11px]">
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-red-500 border border-red-300 shadow-sm shrink-0"></span>
-            <span>Ring 1: Bahaya (&le; {dangerRadiusKm} km) · Sirene Siaga 1</span>
+      {/* Mobile Tactical Base Bottom Sheet when selected */}
+      {selectedBaseSummary && (
+        <MobileBaseDetailSheet
+          summary={selectedBaseSummary}
+          onClose={() => onSelectBase(null)}
+          onFocusBase={(base) => {
+            const { x, y } = geoToSvg(base.lat, base.lon);
+            if (containerRef.current) {
+              const rect = containerRef.current.getBoundingClientRect();
+              const targetZoom = 3.5;
+              const newPanX = rect.width / 2 - (x / SVG_WIDTH) * (rect.width * targetZoom);
+              const newPanY = rect.height / 2 - (y / SVG_HEIGHT) * (rect.height * targetZoom);
+              setZoom(targetZoom);
+              setPan({ x: newPanX, y: newPanY });
+            }
+          }}
+          onOpenModal={(summary) => {
+            if (onOpenDetailModal) {
+              onOpenDetailModal(summary);
+            }
+          }}
+        />
+      )}
+
+      {/* Legend & Instructions (Collapsible on Mobile so it doesn't block the map) */}
+      <div className="absolute bottom-3 left-3 sm:bottom-6 sm:left-6 z-20 pointer-events-auto">
+        {/* Toggle Button for Mobile */}
+        <button
+          onClick={() => setIsLegendExpanded(!isLegendExpanded)}
+          className="sm:hidden bg-slate-900/90 backdrop-blur-md border border-slate-700/80 rounded-xl px-2.5 py-1.5 text-[10px] text-slate-300 flex items-center gap-1.5 shadow-xl"
+        >
+          <Info className="w-3.5 h-3.5 text-sky-400" />
+          <span>Legenda Perimeter</span>
+          {isLegendExpanded ? <ChevronDown className="w-3 h-3" /> : <ChevronUp className="w-3 h-3" />}
+        </button>
+
+        {/* Legend Content */}
+        <div
+          className={`${
+            isLegendExpanded ? 'block' : 'hidden'
+          } sm:block mt-1 sm:mt-0 bg-slate-900/90 backdrop-blur border border-slate-700/80 rounded-xl p-2.5 sm:p-3 text-xs text-slate-300 shadow-2xl max-w-[280px] sm:max-w-xs`}
+        >
+          <div className="font-semibold text-slate-100 text-[11px] sm:text-xs mb-1.5 flex items-center justify-between border-b border-slate-800 pb-1">
+            <span>LEGENDA PERIMETER</span>
+            <span className="font-mono text-[9px] sm:text-[10px] text-sky-400">VEKTOR</span>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-amber-500 border border-amber-300 shrink-0"></span>
-            <span>Ring 2: Waspada ({dangerRadiusKm} - {warningRadiusKm} km) · Patroli</span>
+          <div className="space-y-1 text-[10px] sm:text-[11px]">
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-red-500 border border-red-300 shrink-0"></span>
+              <span>Ring 1: Bahaya (&le; {dangerRadiusKm} km)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-amber-500 border border-amber-300 shrink-0"></span>
+              <span>Ring 2: Waspada ({dangerRadiusKm} - {warningRadiusKm} km)</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full bg-blue-500 border border-blue-300 shrink-0"></span>
+              <span>Ring 3: Siaga ({warningRadiusKm} - {advisoryRadiusKm} km)</span>
+            </div>
+            <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
+              <span className="w-2 h-2 rounded-full bg-orange-500 shrink-0"></span>
+              <span>Titik Api Aktif ({hotspots.length.toLocaleString()})</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <span className="w-2.5 h-2.5 rounded-full border border-dashed border-amber-400 bg-amber-500/30 shrink-0"></span>
+              <span>Lahan Gambut (GFW)</span>
+            </div>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full bg-blue-500 border border-blue-300 shrink-0"></span>
-            <span>Ring 3: Siaga ({warningRadiusKm} - {advisoryRadiusKm} km) · Monitoring</span>
+          <div className="mt-1.5 pt-1 border-t border-slate-800 text-[9px] text-slate-400 flex items-center justify-between">
+            <span>Sentuh geser · Cubit untuk zoom</span>
+            <span className="font-mono text-sky-400">{zoom.toFixed(1)}x</span>
           </div>
-          <div className="flex items-center gap-2 pt-1 border-t border-slate-800">
-            <span className="w-2.5 h-2.5 rounded-full bg-orange-500 shrink-0"></span>
-            <span>Titik Api Aktif ({hotspots.length.toLocaleString()})</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className="w-3 h-3 rounded-full border border-dashed border-amber-400 bg-amber-500/30 shrink-0"></span>
-            <span>Titik Lahan Gambut (GFW Peatland)</span>
-          </div>
-        </div>
-        <div className="mt-2 pt-1.5 border-t border-slate-800 text-[10px] text-slate-400 flex items-center justify-between">
-          <span>Tarik untuk geser · Scroll zoom</span>
-          <span className="font-mono text-sky-400">Zoom: {zoom.toFixed(1)}x</span>
         </div>
       </div>
     </div>
